@@ -3,25 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#14110E">
+<meta name="theme-color" content="#121212">
 <title>Crate — your liked songs, by artist</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #14110E;
-    --panel: #1E1913;
-    --panel-2: #272017;
-    --line: #33291D;
-    --text: #F1EADC;
-    --dim: #9C9081;
-    --faint: #6E6455;
-    --amber: #F0A03C;
-    --amber-hi: #FFC46B;
-    --amber-dim: rgba(240,160,60,.14);
-    --danger: #E06A5A;
-    --rail-w: 22px;
+    --bg: #121212;
+    --panel: #1A1A1A;
+    --panel-2: #242424;
+    --line: #2A2A2A;
+    --text: #FFFFFF;
+    --dim: #B3B3B3;
+    --faint: #6F6F6F;
+    --accent: #1ED760;
+    --accent-hi: #4BE983;
+    --accent-dim: rgba(30,215,96,.14);
+    --danger: #F15E6C;
+    --rail-w: 30px;
     --display: "Bricolage Grotesque", system-ui, sans-serif;
     --mono: "Spline Sans Mono", ui-monospace, monospace;
     --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -37,7 +37,7 @@
   }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   input { font: inherit; }
-  ::selection { background: var(--amber-dim); }
+  ::selection { background: var(--accent-dim); }
 
   /* ---------- shared bits ---------- */
   .mono { font-family: var(--mono); }
@@ -49,22 +49,22 @@
   }
   .lamp {
     width: 10px; height: 10px; border-radius: 50%;
-    background: var(--amber); box-shadow: 0 0 12px 2px rgba(240,160,60,.55);
+    background: var(--accent); box-shadow: 0 0 12px 2px rgba(30,215,96,.55);
     flex: none;
   }
   .lamp.pulse { animation: pulse 1.1s ease-in-out infinite; }
-  @keyframes pulse { 50% { opacity: .35; box-shadow: 0 0 4px 0 rgba(240,160,60,.2); } }
+  @keyframes pulse { 50% { opacity: .35; box-shadow: 0 0 4px 0 rgba(30,215,96,.2); } }
   @media (prefers-reduced-motion: reduce) {
     .lamp.pulse { animation: none; }
     * { transition: none !important; }
   }
   .btn {
     display: block; width: 100%;
-    background: var(--amber); color: #1A1206;
+    background: var(--accent); color: #06210F;
     font-family: var(--display); font-weight: 600; font-size: 17px;
     padding: 15px 20px; border-radius: 999px; text-align: center;
   }
-  .btn:active { background: var(--amber-hi); }
+  .btn:active { background: var(--accent-hi); }
   .btn[disabled] { opacity: .45; pointer-events: none; }
   .btn.ghost {
     background: none; color: var(--text);
@@ -72,7 +72,7 @@
   }
   .btn.danger-text { background: none; color: var(--danger); box-shadow: none; }
   .hint { color: var(--dim); font-size: 14px; line-height: 1.55; }
-  a { color: var(--amber); text-decoration: none; }
+  a { color: var(--accent); text-decoration: none; }
 
   /* ---------- setup / connect ---------- */
   .brand {
@@ -83,7 +83,7 @@
   .setup-step { margin-top: 28px; }
   .setup-step h3 {
     font-family: var(--mono); font-weight: 500; font-size: 12px;
-    text-transform: uppercase; letter-spacing: .12em; color: var(--amber);
+    text-transform: uppercase; letter-spacing: .12em; color: var(--accent);
     margin-bottom: 8px;
   }
   .setup-step p { color: var(--dim); font-size: 14px; line-height: 1.55; }
@@ -96,7 +96,7 @@
     padding: 11px 12px; overflow-x: auto; white-space: nowrap;
   }
   .copy-row button {
-    flex: none; font-family: var(--mono); font-size: 12px; color: var(--amber);
+    flex: none; font-family: var(--mono); font-size: 12px; color: var(--accent);
     border: 1px solid var(--line); border-radius: 10px; padding: 0 14px;
   }
   .field {
@@ -104,7 +104,7 @@
     border-radius: 12px; color: var(--text); padding: 13px 14px;
     font-family: var(--mono); font-size: 14px; margin-top: 10px; outline: none;
   }
-  .field:focus { border-color: var(--amber); }
+  .field:focus { border-color: var(--accent); }
   .setup-actions { margin-top: 36px; }
   .setup-error { color: var(--danger); font-size: 14px; margin-top: 12px; display: none; }
 
@@ -113,7 +113,7 @@
   .sync-count { font-family: var(--display); font-weight: 800; font-size: 56px; letter-spacing: -.03em; }
   .sync-total { color: var(--dim); font-family: var(--mono); font-size: 14px; margin-top: 6px; }
   .sync-bar { height: 3px; background: var(--line); border-radius: 2px; margin-top: 28px; overflow: hidden; }
-  .sync-bar i { display: block; height: 100%; width: 0%; background: var(--amber); transition: width .3s; }
+  .sync-bar i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width .3s; }
 
   /* ---------- library shell ---------- */
   .topbar {
@@ -139,7 +139,7 @@
   .tab.active { color: var(--text); }
   .tab.active::after {
     content: ""; position: absolute; left: 14px; right: 14px; bottom: 0;
-    height: 2px; background: var(--amber); border-radius: 2px 2px 0 0;
+    height: 2px; background: var(--accent); border-radius: 2px 2px 0 0;
   }
   .searchbar { padding: 10px 16px 4px; }
   .searchbar input {
@@ -148,7 +148,7 @@
     font-size: 15px; outline: none;
   }
   .searchbar input::placeholder { color: var(--faint); }
-  .searchbar input:focus { border-color: var(--amber); }
+  .searchbar input:focus { border-color: var(--accent); }
 
   .list-area { padding: 4px 0 96px; }
   .with-rail { padding-right: var(--rail-w); }
@@ -156,7 +156,7 @@
   .letter-head {
     position: sticky; top: var(--head-h, 118px); z-index: 10;
     font-family: var(--display); font-weight: 800; font-size: 15px;
-    color: var(--amber); background: var(--bg);
+    color: var(--accent); background: var(--bg);
     padding: 10px 16px 6px; border-bottom: 1px solid var(--line);
   }
   .row {
@@ -185,21 +185,23 @@
   /* alphabet rail */
   .rail {
     position: fixed; right: 0; top: 50%; transform: translateY(-50%);
-    width: var(--rail-w); z-index: 25;
-    display: flex; flex-direction: column; align-items: center;
-    padding: 6px 0; user-select: none; touch-action: none;
+    width: 34px; z-index: 25;
+    display: flex; flex-direction: column; align-items: flex-end;
+    padding: 8px 8px 8px 14px; user-select: none; touch-action: none;
   }
   .rail span {
     font-family: var(--mono); font-size: 10px; color: var(--faint);
-    line-height: 1.45; width: 100%; text-align: center;
+    line-height: 1.5; width: 14px; text-align: center;
+    transition: transform .1s, color .1s;
   }
-  .rail span.on { color: var(--amber); }
+  .rail span.on { color: var(--accent); }
+  .rail span.hit { color: var(--text); transform: scale(1.5); }
   .rail-bubble {
     position: fixed; right: 40px; top: 50%; transform: translateY(-50%);
     width: 64px; height: 64px; border-radius: 18px;
     background: var(--panel-2); border: 1px solid var(--line);
     display: none; align-items: center; justify-content: center;
-    font-family: var(--display); font-weight: 800; font-size: 30px; color: var(--amber);
+    font-family: var(--display); font-weight: 800; font-size: 30px; color: var(--accent);
     z-index: 40; box-shadow: 0 8px 30px rgba(0,0,0,.5);
   }
 
@@ -631,7 +633,7 @@ function buildArtists() {
 }
 
 const ART_FALLBACK = "data:image/svg+xml," + encodeURIComponent(
-  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'><rect width='46' height='46' fill='#272017'/><path d='M29 13v13.5a4 4 0 1 1-2-3.46V17l-8 2v11.5a4 4 0 1 1-2-3.46V15z' fill='#6E6455'/></svg>`);
+  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'><rect width='46' height='46' fill='#242424'/><path d='M29 13v13.5a4 4 0 1 1-2-3.46V17l-8 2v11.5a4 4 0 1 1-2-3.46V15z' fill='#6F6F6F'/></svg>`);
 function art(url) { return url ? esc(url) : ART_FALLBACK; }
 
 function fmtDur(ms) {
@@ -753,27 +755,51 @@ function trackRow(t, subtitle) {
 
 /* ---------------- alphabet rail ---------------- */
 const RAIL_LETTERS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","#"];
+let railSpans = [];
+let railAvail = new Set();
 function buildRail(activeLetters) {
   const rail = $("rail");
   rail.innerHTML = "";
+  railSpans = [];
+  railAvail = new Set(activeLetters);
   if (!activeLetters.length || currentTab !== "artists") { rail.style.display = "none"; return; }
   rail.style.display = "flex";
-  const set = new Set(activeLetters);
   for (const L of RAIL_LETTERS) {
     const s = document.createElement("span");
     s.textContent = L;
-    if (set.has(L)) s.classList.add("on");
+    if (railAvail.has(L)) s.classList.add("on");
     rail.appendChild(s);
+    railSpans.push(s);
   }
 }
 (function initRail() {
   const rail = $("rail");
   const bubble = $("rail-bubble");
+  let dragging = false;
+  let lastIdx = -1;
+
+  function nearestAvailable(idx) {
+    // Snap to the closest letter that actually exists in the list,
+    // so every position on the rail lands somewhere.
+    if (railAvail.has(RAIL_LETTERS[idx])) return idx;
+    for (let d = 1; d < RAIL_LETTERS.length; d++) {
+      if (idx - d >= 0 && railAvail.has(RAIL_LETTERS[idx - d])) return idx - d;
+      if (idx + d < RAIL_LETTERS.length && railAvail.has(RAIL_LETTERS[idx + d])) return idx + d;
+    }
+    return -1;
+  }
   function jump(clientY) {
-    const rect = rail.getBoundingClientRect();
-    const idx = Math.max(0, Math.min(RAIL_LETTERS.length - 1,
-      Math.floor((clientY - rect.top) / rect.height * RAIL_LETTERS.length)));
+    if (!railSpans.length) return;
+    const top = railSpans[0].getBoundingClientRect().top;
+    const bottom = railSpans[railSpans.length - 1].getBoundingClientRect().bottom;
+    const step = (bottom - top) / RAIL_LETTERS.length;
+    let idx = Math.floor((clientY - top) / step);
+    idx = Math.max(0, Math.min(RAIL_LETTERS.length - 1, idx));
+    idx = nearestAvailable(idx);
+    if (idx < 0 || idx === lastIdx) return;
+    lastIdx = idx;
     const L = RAIL_LETTERS[idx];
+    railSpans.forEach((s, i) => s.classList.toggle("hit", i === idx));
     bubble.style.display = "flex";
     bubble.textContent = L;
     const target = $("letter-" + (L === "#" ? "num" : L));
@@ -782,10 +808,26 @@ function buildRail(activeLetters) {
       window.scrollTo(0, y);
     }
   }
-  rail.addEventListener("touchstart", e => { e.preventDefault(); jump(e.touches[0].clientY); }, { passive: false });
-  rail.addEventListener("touchmove",  e => { e.preventDefault(); jump(e.touches[0].clientY); }, { passive: false });
-  rail.addEventListener("touchend",   () => { bubble.style.display = "none"; });
-  rail.addEventListener("mousedown",  e => { jump(e.clientY); setTimeout(() => bubble.style.display = "none", 350); });
+  function release() {
+    dragging = false;
+    lastIdx = -1;
+    bubble.style.display = "none";
+    railSpans.forEach(s => s.classList.remove("hit"));
+  }
+  rail.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    dragging = true;
+    rail.setPointerCapture(e.pointerId);
+    jump(e.clientY);
+  });
+  rail.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    e.preventDefault();
+    jump(e.clientY);
+  });
+  rail.addEventListener("pointerup", release);
+  rail.addEventListener("pointercancel", release);
+  rail.addEventListener("lostpointercapture", release);
 })();
 function headerHeight() {
   const h = $("topbar").getBoundingClientRect().height;
