@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14110E">
+<title>Crate — your liked songs, by artist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14110E;
+    --panel: #1E1913;
+    --panel-2: #272017;
+    --line: #33291D;
+    --text: #F1EADC;
+    --dim: #9C9081;
+    --faint: #6E6455;
+    --amber: #F0A03C;
+    --amber-hi: #FFC46B;
+    --amber-dim: rgba(240,160,60,.14);
+    --danger: #E06A5A;
+    --rail-w: 22px;
+    --display: "Bricolage Grotesque", system-ui, sans-serif;
+    --mono: "Spline Sans Mono", ui-monospace, monospace;
+    --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html { background: var(--bg); }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  input { font: inherit; }
+  ::selection { background: var(--amber-dim); }
+
+  /* ---------- shared bits ---------- */
+  .mono { font-family: var(--mono); }
+  .screen { display: none; min-height: 100dvh; }
+  .screen.active { display: block; }
+  .center-wrap {
+    max-width: 480px; margin: 0 auto; padding: 48px 24px 64px;
+    display: flex; flex-direction: column; min-height: 100dvh;
+  }
+  .lamp {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--amber); box-shadow: 0 0 12px 2px rgba(240,160,60,.55);
+    flex: none;
+  }
+  .lamp.pulse { animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; box-shadow: 0 0 4px 0 rgba(240,160,60,.2); } }
+  @media (prefers-reduced-motion: reduce) {
+    .lamp.pulse { animation: none; }
+    * { transition: none !important; }
+  }
+  .btn {
+    display: block; width: 100%;
+    background: var(--amber); color: #1A1206;
+    font-family: var(--display); font-weight: 600; font-size: 17px;
+    padding: 15px 20px; border-radius: 999px; text-align: center;
+  }
+  .btn:active { background: var(--amber-hi); }
+  .btn[disabled] { opacity: .45; pointer-events: none; }
+  .btn.ghost {
+    background: none; color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .btn.danger-text { background: none; color: var(--danger); box-shadow: none; }
+  .hint { color: var(--dim); font-size: 14px; line-height: 1.55; }
+  a { color: var(--amber); text-decoration: none; }
+
+  /* ---------- setup / connect ---------- */
+  .brand {
+    font-family: var(--display); font-weight: 800; font-size: 34px;
+    letter-spacing: -.02em; display: flex; align-items: center; gap: 12px;
+  }
+  .tagline { color: var(--dim); margin-top: 6px; font-size: 15px; }
+  .setup-step { margin-top: 28px; }
+  .setup-step h3 {
+    font-family: var(--mono); font-weight: 500; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .12em; color: var(--amber);
+    margin-bottom: 8px;
+  }
+  .setup-step p { color: var(--dim); font-size: 14px; line-height: 1.55; }
+  .copy-row {
+    display: flex; gap: 8px; margin-top: 10px; align-items: stretch;
+  }
+  .copy-row code {
+    flex: 1; font-family: var(--mono); font-size: 12px; color: var(--text);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 11px 12px; overflow-x: auto; white-space: nowrap;
+  }
+  .copy-row button {
+    flex: none; font-family: var(--mono); font-size: 12px; color: var(--amber);
+    border: 1px solid var(--line); border-radius: 10px; padding: 0 14px;
+  }
+  .field {
+    width: 100%; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; color: var(--text); padding: 13px 14px;
+    font-family: var(--mono); font-size: 14px; margin-top: 10px; outline: none;
+  }
+  .field:focus { border-color: var(--amber); }
+  .setup-actions { margin-top: 36px; }
+  .setup-error { color: var(--danger); font-size: 14px; margin-top: 12px; display: none; }
+
+  /* ---------- sync ---------- */
+  .sync-body { flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+  .sync-count { font-family: var(--display); font-weight: 800; font-size: 56px; letter-spacing: -.03em; }
+  .sync-total { color: var(--dim); font-family: var(--mono); font-size: 14px; margin-top: 6px; }
+  .sync-bar { height: 3px; background: var(--line); border-radius: 2px; margin-top: 28px; overflow: hidden; }
+  .sync-bar i { display: block; height: 100%; width: 0%; background: var(--amber); transition: width .3s; }
+
+  /* ---------- library shell ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+    padding: calc(env(safe-area-inset-top) + 10px) 16px 0;
+  }
+  .topbar-row { display: flex; align-items: center; gap: 10px; }
+  .topbar .brand-sm {
+    font-family: var(--display); font-weight: 800; font-size: 20px; letter-spacing: -.02em;
+    display: flex; align-items: center; gap: 8px; flex: 1;
+  }
+  .stats { font-family: var(--mono); font-size: 11px; color: var(--faint); letter-spacing: .04em; }
+  .icon-btn { padding: 8px; color: var(--dim); }
+  .icon-btn svg { display: block; }
+  .tabs { display: flex; gap: 4px; margin-top: 8px; }
+  .tab {
+    font-family: var(--display); font-weight: 600; font-size: 15px;
+    color: var(--dim); padding: 8px 14px 11px; position: relative;
+  }
+  .tab.active { color: var(--text); }
+  .tab.active::after {
+    content: ""; position: absolute; left: 14px; right: 14px; bottom: 0;
+    height: 2px; background: var(--amber); border-radius: 2px 2px 0 0;
+  }
+  .searchbar { padding: 10px 16px 4px; }
+  .searchbar input {
+    width: 100%; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 999px; color: var(--text); padding: 10px 16px;
+    font-size: 15px; outline: none;
+  }
+  .searchbar input::placeholder { color: var(--faint); }
+  .searchbar input:focus { border-color: var(--amber); }
+
+  .list-area { padding: 4px 0 96px; }
+  .with-rail { padding-right: var(--rail-w); }
+
+  .letter-head {
+    position: sticky; top: var(--head-h, 118px); z-index: 10;
+    font-family: var(--display); font-weight: 800; font-size: 15px;
+    color: var(--amber); background: var(--bg);
+    padding: 10px 16px 6px; border-bottom: 1px solid var(--line);
+  }
+  .row {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; text-align: left; padding: 9px 16px;
+  }
+  .row:active { background: var(--panel); }
+  .row .art {
+    width: 46px; height: 46px; border-radius: 8px; flex: none;
+    background: var(--panel-2); object-fit: cover;
+    border: 1px solid var(--line);
+  }
+  .row .art.round { border-radius: 50%; }
+  .row .meta { flex: 1; min-width: 0; }
+  .row .t1 {
+    font-family: var(--display); font-weight: 600; font-size: 16px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row .t2 {
+    color: var(--dim); font-size: 13px; margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row .right { flex: none; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .empty { text-align: center; color: var(--dim); padding: 64px 32px; font-size: 15px; line-height: 1.6; }
+
+  /* alphabet rail */
+  .rail {
+    position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+    width: var(--rail-w); z-index: 25;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 6px 0; user-select: none; touch-action: none;
+  }
+  .rail span {
+    font-family: var(--mono); font-size: 10px; color: var(--faint);
+    line-height: 1.45; width: 100%; text-align: center;
+  }
+  .rail span.on { color: var(--amber); }
+  .rail-bubble {
+    position: fixed; right: 40px; top: 50%; transform: translateY(-50%);
+    width: 64px; height: 64px; border-radius: 18px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    display: none; align-items: center; justify-content: center;
+    font-family: var(--display); font-weight: 800; font-size: 30px; color: var(--amber);
+    z-index: 40; box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  }
+
+  /* ---------- artist detail panel ---------- */
+  .panel-view {
+    position: fixed; inset: 0; z-index: 50; background: var(--bg);
+    transform: translateX(100%); transition: transform .22s ease-out;
+    overflow-y: auto; overscroll-behavior: contain; display: none;
+  }
+  .panel-view.open { transform: translateX(0); }
+  .panel-top {
+    position: sticky; top: 0; z-index: 5;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    display: flex; align-items: center; gap: 4px;
+    padding: calc(env(safe-area-inset-top) + 8px) 10px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-top .name {
+    font-family: var(--display); font-weight: 800; font-size: 18px;
+    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .artist-hero { padding: 22px 16px 6px; display: flex; align-items: center; gap: 16px; }
+  .artist-hero img {
+    width: 84px; height: 84px; border-radius: 50%; object-fit: cover;
+    border: 1px solid var(--line); background: var(--panel-2); flex: none;
+  }
+  .artist-hero h2 { font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: -.02em; }
+  .artist-hero .sub { font-family: var(--mono); font-size: 12px; color: var(--dim); margin-top: 5px; }
+  .hero-actions { padding: 14px 16px 4px; display: flex; gap: 10px; }
+  .chip {
+    font-family: var(--display); font-weight: 600; font-size: 14px;
+    border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; color: var(--text);
+  }
+  .chip:active { background: var(--panel); }
+  .album-head { display: flex; align-items: center; gap: 12px; padding: 20px 16px 8px; }
+  .album-head img {
+    width: 40px; height: 40px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--panel-2); flex: none;
+  }
+  .album-head .an { font-family: var(--display); font-weight: 600; font-size: 15px; }
+  .album-head .ay { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 2px; }
+
+  /* ---------- settings sheet ---------- */
+  .sheet-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 60;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 61;
+    background: var(--panel); border-radius: 20px 20px 0 0;
+    border-top: 1px solid var(--line);
+    padding: 10px 20px calc(env(safe-area-inset-bottom) + 24px);
+    transform: translateY(105%); transition: transform .22s ease-out;
+    max-width: 560px; margin: 0 auto;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet .grip { width: 36px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 16px; }
+  .sheet h3 { font-family: var(--display); font-weight: 800; font-size: 20px; }
+  .sheet .kv {
+    display: flex; justify-content: space-between; font-size: 14px;
+    padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--dim);
+  }
+  .sheet .kv b { color: var(--text); font-weight: 500; font-family: var(--mono); font-size: 13px; }
+  .sheet .btn { margin-top: 14px; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 20px);
+    transform: translateX(-50%) translateY(20px);
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+    font-size: 14px; padding: 11px 18px; border-radius: 999px; z-index: 80;
+    opacity: 0; transition: all .25s; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (min-width: 700px) {
+    .list-area, .searchbar, .topbar { max-width: 640px; margin-left: auto; margin-right: auto; }
+    .topbar { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+    .panel-view > div { max-width: 640px; margin: 0 auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ SETUP ============ -->
+<section class="screen" id="scr-setup">
+  <div class="center-wrap">
+    <div class="brand"><span class="lamp"></span>Crate</div>
+    <p class="tagline">Your Spotify liked songs, browsable by artist — like a library should be.</p>
+
+    <div class="setup-step">
+      <h3>Step 1 — Create your Spotify app</h3>
+      <p>Open <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a>, log in with your Spotify account, and create an app (any name works). Requires Spotify Premium.</p>
+    </div>
+
+    <div class="setup-step">
+      <h3>Step 2 — Set the redirect URI</h3>
+      <p>In your app's settings, add this exact redirect URI, select "Web API", and save:</p>
+      <div class="copy-row">
+        <code id="redirect-uri-code"></code>
+        <button id="copy-uri-btn" type="button">Copy</button>
+      </div>
+    </div>
+
+    <div class="setup-step">
+      <h3>Step 3 — Paste your Client ID</h3>
+      <p>Copy the Client ID from your app's settings page and paste it here. It stays on this device only.</p>
+      <input class="field" id="client-id-input" placeholder="Client ID" autocomplete="off" spellcheck="false">
+      <div class="setup-error" id="setup-error">That doesn't look like a Client ID — it should be a 32-character code.</div>
+    </div>
+
+    <div class="setup-actions">
+      <button class="btn" id="save-client-btn" type="button">Connect Spotify</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONNECT (returning, logged out) ============ -->
+<section class="screen" id="scr-connect">
+  <div class="center-wrap">
+    <div class="brand"><span class="lamp"></span>Crate</div>
+    <p class="tagline">Your Spotify liked songs, browsable by artist.</p>
+    <div style="flex:1"></div>
+    <button class="btn" id="reconnect-btn" type="button">Connect Spotify</button>
+    <button class="btn danger-text" id="forget-btn" type="button" style="margin-top:8px">Start over with a different Client ID</button>
+  </div>
+</section>
+
+<!-- ============ SYNC ============ -->
+<section class="screen" id="scr-sync">
+  <div class="center-wrap">
+    <div class="brand"><span class="lamp pulse"></span>Crate</div>
+    <div class="sync-body">
+      <div class="sync-count mono" id="sync-count">0</div>
+      <div class="sync-total" id="sync-total">reading your liked songs…</div>
+      <div class="sync-bar"><i id="sync-bar-fill"></i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LIBRARY ============ -->
+<section class="screen" id="scr-library">
+  <div class="topbar" id="topbar">
+    <div class="topbar-row">
+      <div class="brand-sm"><span class="lamp" id="lib-lamp"></span>Crate</div>
+      <div class="stats" id="lib-stats"></div>
+      <button class="icon-btn" id="settings-btn" type="button" aria-label="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="artists" type="button">Artists</button>
+      <button class="tab" data-tab="songs" type="button">Songs</button>
+    </div>
+  </div>
+
+  <div class="searchbar"><input id="search-input" placeholder="Search artists" autocomplete="off"></div>
+  <div class="list-area with-rail" id="list-area"></div>
+
+  <div class="rail" id="rail"></div>
+  <div class="rail-bubble" id="rail-bubble"></div>
+</section>
+
+<!-- ============ ARTIST DETAIL ============ -->
+<div class="panel-view" id="artist-panel">
+  <div>
+    <div class="panel-top">
+      <button class="icon-btn" id="artist-back" type="button" aria-label="Back">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="name" id="artist-top-name"></div>
+    </div>
+    <div id="artist-content"></div>
+  </div>
+</div>
+
+<!-- ============ SETTINGS SHEET ============ -->
+<div class="sheet-backdrop" id="sheet-backdrop"></div>
+<div class="sheet" id="settings-sheet">
+  <div class="grip"></div>
+  <h3>Settings</h3>
+  <div class="kv"><span>Account</span><b id="set-account">—</b></div>
+  <div class="kv"><span>Liked songs</span><b id="set-songs">—</b></div>
+  <div class="kv"><span>Artists</span><b id="set-artists">—</b></div>
+  <div class="kv"><span>Last synced</span><b id="set-synced">—</b></div>
+  <button class="btn" id="quick-sync-btn" type="button">Sync new likes</button>
+  <button class="btn ghost" id="full-sync-btn" type="button">Full resync</button>
+  <button class="btn danger-text" id="logout-btn" type="button">Log out</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* =========================================================
+   Crate — a personal Spotify library browser.
+   Single file, no backend. Auth: Authorization Code + PKCE.
+   ========================================================= */
+
+const AUTH_URL  = "https://accounts.spotify.com/authorize";
+const TOKEN_URL = "https://accounts.spotify.com/api/token";
+const API       = "https://api.spotify.com/v1";
+const SCOPES    = "user-library-read";
+const REDIRECT_URI = location.origin + location.pathname;
+
+const LS = {
+  clientId: "crate.clientId",
+  verifier: "crate.pkceVerifier",
+  authState: "crate.authState",
+  tokens: "crate.tokens",        // {access, refresh, expiresAt}
+  library: "crate.library",      // {tracks:[...], syncedAt, user}
+};
+
+const $ = (id) => document.getElementById(id);
+const screens = ["scr-setup","scr-connect","scr-sync","scr-library"];
+function showScreen(id) {
+  screens.forEach(s => $(s).classList.toggle("active", s === id));
+  window.scrollTo(0, 0);
+}
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* ---------------- storage helpers ---------------- */
+const store = {
+  get(key) { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } },
+  set(key, val) { localStorage.setItem(key, JSON.stringify(val)); },
+  del(key) { localStorage.removeItem(key); },
+};
+
+/* ---------------- PKCE + auth ---------------- */
+function randomString(len) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const rnd = crypto.getRandomValues(new Uint8Array(len));
+  return Array.from(rnd, b => chars[b % chars.length]).join("");
+}
+async function sha256b64url(str) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function beginAuth() {
+  const clientId = store.get(LS.clientId);
+  const verifier = randomString(64);
+  const state = randomString(16);
+  store.set(LS.verifier, verifier);
+  store.set(LS.authState, state);
+  const challenge = await sha256b64url(verifier);
+  const p = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    redirect_uri: REDIRECT_URI,
+    scope: SCOPES,
+    state,
+    code_challenge_method: "S256",
+    code_challenge: challenge,
+  });
+  location.assign(`${AUTH_URL}?${p}`);
+}
+async function exchangeCode(code) {
+  const body = new URLSearchParams({
+    client_id: store.get(LS.clientId),
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: REDIRECT_URI,
+    code_verifier: store.get(LS.verifier),
+  });
+  const res = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!res.ok) throw new Error("Token exchange failed (" + res.status + ")");
+  saveTokens(await res.json());
+}
+function saveTokens(data) {
+  const prev = store.get(LS.tokens) || {};
+  store.set(LS.tokens, {
+    access: data.access_token,
+    refresh: data.refresh_token || prev.refresh,
+    expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+  });
+}
+async function refreshTokens() {
+  const t = store.get(LS.tokens);
+  if (!t?.refresh) throw new Error("no refresh token");
+  const body = new URLSearchParams({
+    client_id: store.get(LS.clientId),
+    grant_type: "refresh_token",
+    refresh_token: t.refresh,
+  });
+  const res = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!res.ok) throw new Error("refresh failed");
+  saveTokens(await res.json());
+}
+async function getAccessToken() {
+  let t = store.get(LS.tokens);
+  if (!t) throw new Error("not authenticated");
+  if (Date.now() >= t.expiresAt) {
+    await refreshTokens();
+    t = store.get(LS.tokens);
+  }
+  return t.access;
+}
+
+/* ---------------- API with retry + rate-limit handling ---------------- */
+async function apiGet(path) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const token = await getAccessToken();
+    const res = await fetch(API + path, { headers: { Authorization: "Bearer " + token } });
+    if (res.status === 429) {
+      const wait = (parseInt(res.headers.get("Retry-After")) || 2) * 1000;
+      await new Promise(r => setTimeout(r, wait + 250));
+      continue;
+    }
+    if (res.status === 401) { await refreshTokens(); continue; }
+    if (!res.ok) throw new Error("API " + res.status + " on " + path);
+    return res.json();
+  }
+  throw new Error("API kept failing on " + path);
+}
+
+/* ---------------- library sync ---------------- */
+function slimTrack(item) {
+  const t = item.track;
+  if (!t || !t.id) return null;
+  const images = t.album?.images || [];
+  const img = (images[images.length - 1] || images[0])?.url || "";
+  const imgBig = (images[0])?.url || img;
+  return {
+    id: t.id,
+    name: t.name,
+    dur: t.duration_ms || 0,
+    added: item.added_at,
+    artists: (t.artists || []).map(a => ({ id: a.id, name: a.name })),
+    album: {
+      id: t.album?.id || "",
+      name: t.album?.name || "",
+      year: (t.album?.release_date || "").slice(0, 4),
+      img, imgBig,
+    },
+  };
+}
+
+async function fullSync(onProgress) {
+  const tracks = [];
+  let url = "/me/tracks?limit=50&offset=0";
+  let total = null;
+  while (url) {
+    const page = await apiGet(url);
+    if (total === null) total = page.total;
+    for (const item of page.items) {
+      const s = slimTrack(item);
+      if (s) tracks.push(s);
+    }
+    onProgress?.(tracks.length, total);
+    url = page.next ? page.next.replace(API, "") : null;
+  }
+  return tracks;
+}
+
+async function quickSync(existingTracks, onProgress) {
+  // /me/tracks returns most-recently-liked first, so walk pages until
+  // we reach songs we already have, then stitch the lists together.
+  const known = new Set(existingTracks.map(t => t.id));
+  const fresh = [];
+  let url = "/me/tracks?limit=50&offset=0";
+  let overlap = false;
+  while (url && !overlap) {
+    const page = await apiGet(url);
+    for (const item of page.items) {
+      const s = slimTrack(item);
+      if (!s) continue;
+      if (known.has(s.id)) { overlap = true; break; }
+      fresh.push(s);
+    }
+    onProgress?.(fresh.length);
+    url = page.next ? page.next.replace(API, "") : null;
+  }
+  return fresh;
+}
+
+function persistLibrary(lib) {
+  try {
+    store.set(LS.library, lib);
+  } catch (e) {
+    toast("Storage is full — library kept in memory for this session only.");
+  }
+}
+
+/* ---------------- derived data ---------------- */
+let LIB = null;          // {tracks, syncedAt, user}
+let ARTISTS = [];        // [{id, name, sortKey, count, img, trackIdx:[...]}]
+let currentTab = "artists";
+let searchQuery = "";
+
+function sortKeyFor(name) {
+  return name.replace(/^the\s+/i, "").toLocaleLowerCase();
+}
+function letterFor(key) {
+  const c = key.charAt(0).toUpperCase();
+  return /[A-Z]/.test(c) ? c : "#";
+}
+function buildArtists() {
+  const map = new Map();
+  LIB.tracks.forEach((t, idx) => {
+    for (const a of t.artists) {
+      if (!a.id) continue;
+      let e = map.get(a.id);
+      if (!e) {
+        e = { id: a.id, name: a.name, sortKey: sortKeyFor(a.name), count: 0, img: "", trackIdx: [] };
+        map.set(a.id, e);
+      }
+      e.count++;
+      e.trackIdx.push(idx);
+      if (!e.img && t.album.img) e.img = t.album.img;
+    }
+  });
+  ARTISTS = [...map.values()].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+}
+
+const ART_FALLBACK = "data:image/svg+xml," + encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'><rect width='46' height='46' fill='#272017'/><path d='M29 13v13.5a4 4 0 1 1-2-3.46V17l-8 2v11.5a4 4 0 1 1-2-3.46V15z' fill='#6E6455'/></svg>`);
+function art(url) { return url ? esc(url) : ART_FALLBACK; }
+
+function fmtDur(ms) {
+  const s = Math.round(ms / 1000);
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+function esc(str) {
+  return str.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+/* ---------------- rendering: shared incremental list ---------------- */
+let renderSession = 0;
+function renderChunked(container, items, renderItem, chunk = 150) {
+  const session = ++renderSession;
+  container.innerHTML = "";
+  let i = 0;
+  function step() {
+    if (session !== renderSession) return;
+    const frag = document.createDocumentFragment();
+    const end = Math.min(i + chunk, items.length);
+    for (; i < end; i++) frag.appendChild(renderItem(items[i], i));
+    container.appendChild(frag);
+    if (i < items.length) {
+      const sentinel = document.createElement("div");
+      sentinel.style.height = "1px";
+      container.appendChild(sentinel);
+      new IntersectionObserver((entries, obs) => {
+        if (entries[0].isIntersecting) { obs.disconnect(); sentinel.remove(); step(); }
+      }, { rootMargin: "1200px" }).observe(sentinel);
+    }
+  }
+  step();
+}
+
+/* ---------------- rendering: artists tab ---------------- */
+function renderArtists() {
+  const area = $("list-area");
+  area.classList.add("with-rail");
+  const q = searchQuery.trim().toLocaleLowerCase();
+  const list = q ? ARTISTS.filter(a => a.name.toLocaleLowerCase().includes(q)) : ARTISTS;
+
+  if (!list.length) {
+    area.innerHTML = `<div class="empty">No artists match "${esc(searchQuery)}".</div>`;
+    buildRail([]);
+    return;
+  }
+
+  // interleave letter headers
+  const rows = [];
+  let lastLetter = "";
+  for (const a of list) {
+    const L = letterFor(a.sortKey);
+    if (L !== lastLetter) { rows.push({ header: L }); lastLetter = L; }
+    rows.push({ artist: a });
+  }
+
+  renderChunked(area, rows, (row) => {
+    if (row.header) {
+      const h = document.createElement("div");
+      h.className = "letter-head";
+      h.id = "letter-" + (row.header === "#" ? "num" : row.header);
+      h.textContent = row.header;
+      return h;
+    }
+    const a = row.artist;
+    const btn = document.createElement("button");
+    btn.className = "row";
+    btn.type = "button";
+    btn.innerHTML = `
+      <img class="art round" src="${art(a.img)}" alt="" loading="lazy">
+      <div class="meta">
+        <div class="t1">${esc(a.name)}</div>
+        <div class="t2">${a.count} liked song${a.count === 1 ? "" : "s"}</div>
+      </div>
+      <div class="right">›</div>`;
+    btn.addEventListener("click", () => openArtist(a.id));
+    return btn;
+  }, rows.length); // render fully so A-Z jumps always land
+
+  buildRail([...new Set(list.map(a => letterFor(a.sortKey)))]);
+}
+
+/* ---------------- rendering: songs tab ---------------- */
+function renderSongs() {
+  const area = $("list-area");
+  area.classList.remove("with-rail");
+  buildRail([]);
+  const q = searchQuery.trim().toLocaleLowerCase();
+  const indexed = LIB.tracks.map((t, i) => t);
+  const list = q
+    ? indexed.filter(t =>
+        t.name.toLocaleLowerCase().includes(q) ||
+        t.artists.some(a => a.name.toLocaleLowerCase().includes(q)))
+    : indexed;
+
+  if (!list.length) {
+    area.innerHTML = `<div class="empty">No songs match "${esc(searchQuery)}".</div>`;
+    return;
+  }
+  renderChunked(area, list, (t) => trackRow(t, t.artists.map(a => a.name).join(", ")));
+}
+
+function trackRow(t, subtitle) {
+  const btn = document.createElement("button");
+  btn.className = "row";
+  btn.type = "button";
+  btn.innerHTML = `
+    <img class="art" src="${art(t.album.img)}" alt="" loading="lazy">
+    <div class="meta">
+      <div class="t1">${esc(t.name)}</div>
+      <div class="t2">${esc(subtitle)}</div>
+    </div>
+    <div class="right">${fmtDur(t.dur)}</div>`;
+  btn.addEventListener("click", () => {
+    location.href = "https://open.spotify.com/track/" + t.id;
+  });
+  return btn;
+}
+
+/* ---------------- alphabet rail ---------------- */
+const RAIL_LETTERS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","#"];
+function buildRail(activeLetters) {
+  const rail = $("rail");
+  rail.innerHTML = "";
+  if (!activeLetters.length || currentTab !== "artists") { rail.style.display = "none"; return; }
+  rail.style.display = "flex";
+  const set = new Set(activeLetters);
+  for (const L of RAIL_LETTERS) {
+    const s = document.createElement("span");
+    s.textContent = L;
+    if (set.has(L)) s.classList.add("on");
+    rail.appendChild(s);
+  }
+}
+(function initRail() {
+  const rail = $("rail");
+  const bubble = $("rail-bubble");
+  function jump(clientY) {
+    const rect = rail.getBoundingClientRect();
+    const idx = Math.max(0, Math.min(RAIL_LETTERS.length - 1,
+      Math.floor((clientY - rect.top) / rect.height * RAIL_LETTERS.length)));
+    const L = RAIL_LETTERS[idx];
+    bubble.style.display = "flex";
+    bubble.textContent = L;
+    const target = $("letter-" + (L === "#" ? "num" : L));
+    if (target) {
+      const y = target.getBoundingClientRect().top + window.scrollY - headerHeight() + 1;
+      window.scrollTo(0, y);
+    }
+  }
+  rail.addEventListener("touchstart", e => { e.preventDefault(); jump(e.touches[0].clientY); }, { passive: false });
+  rail.addEventListener("touchmove",  e => { e.preventDefault(); jump(e.touches[0].clientY); }, { passive: false });
+  rail.addEventListener("touchend",   () => { bubble.style.display = "none"; });
+  rail.addEventListener("mousedown",  e => { jump(e.clientY); setTimeout(() => bubble.style.display = "none", 350); });
+})();
+function headerHeight() {
+  const h = $("topbar").getBoundingClientRect().height;
+  document.documentElement.style.setProperty("--head-h", h + "px");
+  return h;
+}
+
+/* ---------------- artist detail ---------------- */
+function openArtist(artistId) {
+  const a = ARTISTS.find(x => x.id === artistId);
+  if (!a) return;
+  const panel = $("artist-panel");
+  $("artist-top-name").textContent = a.name;
+
+  const tracks = a.trackIdx.map(i => LIB.tracks[i]);
+  // group by album, albums ordered newest year first
+  const albums = new Map();
+  for (const t of tracks) {
+    const key = t.album.id || t.album.name;
+    if (!albums.has(key)) albums.set(key, { ...t.album, tracks: [] });
+    albums.get(key).tracks.push(t);
+  }
+  const albumList = [...albums.values()].sort((x, y) => (y.year || "0").localeCompare(x.year || "0"));
+  const heroImg = albumList[0]?.imgBig || a.img;
+  const totalMs = tracks.reduce((s, t) => s + t.dur, 0);
+  const mins = Math.round(totalMs / 60000);
+
+  const c = $("artist-content");
+  c.innerHTML = `
+    <div class="artist-hero">
+      <img src="${art(heroImg)}" alt="">
+      <div>
+        <h2>${esc(a.name)}</h2>
+        <div class="sub">${tracks.length} liked · ${albumList.length} album${albumList.length === 1 ? "" : "s"} · ${mins} min</div>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <button class="chip" id="open-artist-spotify" type="button">Open artist in Spotify</button>
+    </div>
+    <div id="artist-albums"></div>`;
+  $("open-artist-spotify").addEventListener("click", () => {
+    location.href = "https://open.spotify.com/artist/" + a.id;
+  });
+
+  const wrap = $("artist-albums");
+  for (const alb of albumList) {
+    const head = document.createElement("div");
+    head.className = "album-head";
+    head.innerHTML = `
+      <img src="${art(alb.img)}" alt="" loading="lazy">
+      <div><div class="an">${esc(alb.name)}</div><div class="ay">${esc(alb.year || "")}</div></div>`;
+    wrap.appendChild(head);
+    for (const t of alb.tracks) wrap.appendChild(trackRow(t, t.artists.map(x => x.name).join(", ")));
+  }
+
+  panel.style.display = "block";
+  requestAnimationFrame(() => panel.classList.add("open"));
+  panel.scrollTop = 0;
+  history.pushState({ artist: artistId }, "");
+}
+function closeArtist(fromPop) {
+  const panel = $("artist-panel");
+  panel.classList.remove("open");
+  setTimeout(() => { panel.style.display = "none"; }, 240);
+  if (!fromPop && history.state?.artist) history.back();
+}
+window.addEventListener("popstate", () => {
+  if ($("artist-panel").classList.contains("open")) closeArtist(true);
+});
+$("artist-back").addEventListener("click", () => closeArtist(false));
+
+/* ---------------- library screen ---------------- */
+function showLibrary() {
+  showScreen("scr-library");
+  $("lib-stats").textContent =
+    LIB.tracks.length.toLocaleString() + " songs · " + ARTISTS.length.toLocaleString() + " artists";
+  headerHeight();
+  refreshTab();
+}
+function refreshTab() {
+  $("search-input").placeholder = currentTab === "artists" ? "Search artists" : "Search songs";
+  if (currentTab === "artists") renderArtists(); else renderSongs();
+}
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentTab = tab.dataset.tab;
+    window.scrollTo(0, 0);
+    refreshTab();
+  });
+});
+let searchTimer;
+$("search-input").addEventListener("input", (e) => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { searchQuery = e.target.value; refreshTab(); }, 120);
+});
+
+/* ---------------- settings sheet ---------------- */
+function openSheet() {
+  $("set-account").textContent = LIB?.user || "—";
+  $("set-songs").textContent = LIB ? LIB.tracks.length.toLocaleString() : "—";
+  $("set-artists").textContent = ARTISTS.length.toLocaleString();
+  $("set-synced").textContent = LIB?.syncedAt ? new Date(LIB.syncedAt).toLocaleString() : "—";
+  $("sheet-backdrop").classList.add("open");
+  $("settings-sheet").classList.add("open");
+}
+function closeSheet() {
+  $("sheet-backdrop").classList.remove("open");
+  $("settings-sheet").classList.remove("open");
+}
+$("settings-btn").addEventListener("click", openSheet);
+$("sheet-backdrop").addEventListener("click", closeSheet);
+
+$("quick-sync-btn").addEventListener("click", async () => {
+  closeSheet();
+  if (!store.get(LS.tokens)) { beginAuth(); return; }
+  await runQuickSync(true);
+});
+$("full-sync-btn").addEventListener("click", async () => {
+  closeSheet();
+  if (!store.get(LS.tokens)) { beginAuth(); return; }
+  showScreen("scr-sync");
+  try {
+    const tracks = await fullSync(updateSyncUI);
+    LIB = { tracks, syncedAt: Date.now(), user: LIB?.user || "" };
+    persistLibrary(LIB);
+    buildArtists();
+    showLibrary();
+    toast("Library fully resynced.");
+  } catch (e) {
+    toast("Resync failed — check your connection.");
+    if (LIB) showLibrary(); else showScreen("scr-connect");
+  }
+});
+$("logout-btn").addEventListener("click", () => {
+  store.del(LS.tokens);
+  closeSheet();
+  showScreen("scr-connect");
+});
+
+/* ---------------- sync UI ---------------- */
+function updateSyncUI(count, total) {
+  $("sync-count").textContent = count.toLocaleString();
+  $("sync-total").textContent = total ? "of " + total.toLocaleString() + " liked songs" : "reading your liked songs…";
+  if (total) $("sync-bar-fill").style.width = Math.min(100, count / total * 100) + "%";
+}
+async function runQuickSync(announce) {
+  const lamp = $("lib-lamp");
+  lamp.classList.add("pulse");
+  try {
+    const fresh = await quickSync(LIB.tracks);
+    if (fresh.length) {
+      LIB.tracks = fresh.concat(LIB.tracks);
+      LIB.syncedAt = Date.now();
+      persistLibrary(LIB);
+      buildArtists();
+      showLibrary();
+      toast(fresh.length + " new like" + (fresh.length === 1 ? "" : "s") + " added.");
+    } else if (announce) {
+      LIB.syncedAt = Date.now();
+      persistLibrary(LIB);
+      toast("You're up to date.");
+    }
+  } catch (e) {
+    if (announce) toast("Sync failed — check your connection.");
+  } finally {
+    lamp.classList.remove("pulse");
+  }
+}
+
+/* ---------------- setup screen ---------------- */
+$("redirect-uri-code").textContent = REDIRECT_URI;
+$("copy-uri-btn").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(REDIRECT_URI);
+    $("copy-uri-btn").textContent = "Copied";
+    setTimeout(() => $("copy-uri-btn").textContent = "Copy", 1600);
+  } catch { toast("Copy failed — select and copy the text manually."); }
+});
+$("save-client-btn").addEventListener("click", () => {
+  const id = $("client-id-input").value.trim();
+  if (!/^[a-f0-9]{32}$/i.test(id)) { $("setup-error").style.display = "block"; return; }
+  $("setup-error").style.display = "none";
+  store.set(LS.clientId, id);
+  beginAuth();
+});
+$("reconnect-btn").addEventListener("click", beginAuth);
+$("forget-btn").addEventListener("click", () => {
+  if (confirm("This clears your Client ID, login, and cached library from this device. Continue?")) {
+    Object.values(LS).forEach(k => store.del(k));
+    location.reload();
+  }
+});
+
+/* ---------------- boot ---------------- */
+async function boot() {
+  const params = new URLSearchParams(location.search);
+
+  // Returning from Spotify's consent page
+  if (params.has("code")) {
+    const expectedState = store.get(LS.authState);
+    history.replaceState({}, "", location.pathname); // clean the URL
+    if (params.get("state") !== expectedState) {
+      toast("Login didn't match this session — try again.");
+      showScreen("scr-connect");
+      return;
+    }
+    showScreen("scr-sync");
+    try {
+      await exchangeCode(params.get("code"));
+    } catch (e) {
+      toast("Spotify login failed — try again.");
+      showScreen("scr-connect");
+      return;
+    }
+  } else if (params.has("error")) {
+    history.replaceState({}, "", location.pathname);
+    toast("Spotify said: " + params.get("error"));
+    showScreen(store.get(LS.clientId) ? "scr-connect" : "scr-setup");
+    return;
+  }
+
+  if (!store.get(LS.clientId)) { showScreen("scr-setup"); return; }
+
+  LIB = store.get(LS.library);
+
+  if (!store.get(LS.tokens)) {
+    if (LIB?.tracks?.length) {
+      // Offline-ish mode: browse cache without a login
+      buildArtists();
+      showLibrary();
+      toast("Showing cached library — log in from Settings to sync.");
+    } else {
+      showScreen("scr-connect");
+    }
+    return;
+  }
+
+  if (LIB?.tracks?.length) {
+    buildArtists();
+    showLibrary();
+    runQuickSync(false); // silent background check for new likes
+  } else {
+    showScreen("scr-sync");
+    try {
+      const [me, tracks] = await Promise.all([
+        apiGet("/me").catch(() => null),
+        fullSync(updateSyncUI),
+      ]);
+      LIB = { tracks, syncedAt: Date.now(), user: me?.display_name || "" };
+      persistLibrary(LIB);
+      buildArtists();
+      showLibrary();
+    } catch (e) {
+      toast("Couldn't load your library — try connecting again.");
+      showScreen("scr-connect");
+    }
+  }
+}
+boot();
+</script>
+</body>
+</html>
