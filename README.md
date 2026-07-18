@@ -36,10 +36,10 @@ Open your hosted app, paste the Client ID, tap "Connect Spotify", and approve ac
 
 ## Everyday use
 
-- **Artists tab** — your whole library grouped by artist, with an iPod-style A–Z rail on the right edge for jumping. Sort chips switch between A–Z (ignoring "The"), most liked, and most recently liked from.
+- **Artists tab** — your whole library grouped by artist, with an iPod-style A–Z rail on the right edge for jumping. Sort chips switch between A–Z (ignoring "The"), most liked, and most recently liked from. A "Main only" toggle hides artists who only appear as features on your liked songs — it also filters the top-artists and one-hit-wonder lists in Stats, and it remembers your choice.
 - **Artist page** — tap an artist to see every song you've liked from them, grouped by album, newest first. Tap a song to open it in the Spotify app.
 - **Songs tab** — all liked songs, newest first, searchable by title or artist.
-- **Stats tab** — totals, likes per year, a by-decade breakdown of when your music was released, your top artists, and every one-hit wonder in your library.
+- **Stats tab** — totals, likes per year, a by-decade breakdown of when your music was released, your top artists, a duplicate finder (same song liked from different releases — singles vs. albums, remasters), and every one-hit wonder in your library.
 - **Settings (gear icon)** — sync new likes, full resync, log out.
 
 On Android, Chrome will offer "Install app" (menu → Add to Home screen) — it launches fullscreen with its own icon, and your cached library is browsable even offline.
