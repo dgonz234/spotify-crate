@@ -1,6 +1,8 @@
 # Crate
 
-A personal web app that shows your Spotify Liked Songs the way iTunes used to: browsable by artist, grouped by album, with an A–Z jump rail. Single HTML file, no backend, no build step. Your data never leaves your device — the app talks directly to Spotify's API from your browser and caches the library in local storage.
+A personal web app that shows your Spotify Liked Songs the way iTunes used to: browsable by artist, grouped by album, with an A–Z jump rail. No backend, no build step. Your data never leaves your device — the app talks directly to Spotify's API from your browser and caches the library in local storage.
+
+Files: `index.html` (the whole app), `manifest.webmanifest` + `sw.js` + the two icons (PWA install and offline support). Upload all of them to the same folder.
 
 ## What you need
 
@@ -14,7 +16,7 @@ A personal web app that shows your Spotify Liked Songs the way iTunes used to: b
 The app must be served over HTTPS for Spotify login to work (opening the file directly from your phone/computer won't work). The fastest option is GitHub Pages:
 
 1. Create a new repository on github.com (e.g. `crate`), public or private with Pages enabled.
-2. Upload `index.html` to it.
+2. Upload all the files (`index.html`, `sw.js`, `manifest.webmanifest`, `icon-192.png`, `icon-512.png`) to it.
 3. In the repo: Settings → Pages → Source: "Deploy from a branch" → branch `main`, folder `/ (root)` → Save.
 4. After a minute your app is live at `https://YOURUSERNAME.github.io/crate/`
 
@@ -34,16 +36,18 @@ Open your hosted app, paste the Client ID, tap "Connect Spotify", and approve ac
 
 ## Everyday use
 
-- **Artists tab** — your whole library grouped by artist, alphabetical (ignoring "The"), with an iPod-style A–Z rail on the right edge for jumping.
+- **Artists tab** — your whole library grouped by artist, with an iPod-style A–Z rail on the right edge for jumping. Sort chips switch between A–Z (ignoring "The"), most liked, and most recently liked from.
 - **Artist page** — tap an artist to see every song you've liked from them, grouped by album, newest first. Tap a song to open it in the Spotify app.
 - **Songs tab** — all liked songs, newest first, searchable by title or artist.
+- **Stats tab** — totals, likes per year, a by-decade breakdown of when your music was released, your top artists, and every one-hit wonder in your library.
 - **Settings (gear icon)** — sync new likes, full resync, log out.
 
-On Android, use Chrome's menu → "Add to Home screen" to install it like an app.
+On Android, Chrome will offer "Install app" (menu → Add to Home screen) — it launches fullscreen with its own icon, and your cached library is browsable even offline.
 
 ## Things worth knowing
 
-- **Unliked songs** don't disappear automatically — the quick sync only looks for *new* likes (that's what makes it fast). Run "Full resync" from Settings occasionally to clear out removed songs.
+- **Unliked songs**: the quick sync compares your cached count against Spotify's total, so if you've unliked songs elsewhere, a banner appears offering a one-tap resync. (The quick sync itself only fetches new likes — that's what makes it fast.)
+- **Updating the app**: if you replace `index.html` later, also bump the `VERSION` string at the top of `sw.js` so installed copies fetch the new version promptly. Reloading twice also works.
 - **Only you (plus up to 4 others)** can use your app: Spotify's Development Mode allows 5 users per app, and additional users must be added under "User Management" in the developer dashboard.
 - **If your Premium lapses**, the Spotify app tied to your account stops working until you resubscribe (Spotify's rule, not the app's).
 - Your Client ID is not a secret in this setup — PKCE auth is designed for exactly this kind of public client app.
