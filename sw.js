@@ -2,7 +2,7 @@
    Never touches Spotify API or auth traffic. */
 "use strict";
 
-const VERSION = "crate-v6";
+const VERSION = "crate-v7";
 const SHELL = ["./", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {

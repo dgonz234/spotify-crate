@@ -510,6 +510,7 @@
   <div class="kv"><span>Last synced</span><b id="set-synced">—</b></div>
   <button class="btn" id="quick-sync-btn" type="button">Sync new likes</button>
   <button class="btn ghost" id="full-sync-btn" type="button">Full resync</button>
+  <button class="btn ghost" id="reset-runs-btn" type="button">Reset game runs</button>
   <button class="btn danger-text" id="logout-btn" type="button">Log out</button>
 </div>
 <div class="toast" id="toast"></div>
@@ -537,6 +538,7 @@ const LS = {
   scope: "crate.scope",          // "all" | "main"
   scopeV: "crate.scopeVersion",  // which SCOPES the current login granted
   game: "crate.game",            // heardle stats
+  runs: "crate.gameRuns",        // per-source no-repeat runs {sourceKey:{played:[ids]}}
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1213,11 +1215,34 @@ function guessMatches(g, secret) {
     g.artists.some(a => secret.artists.some(b => b.id === a.id));
 }
 
-function startRound(pool, name) {
+function getRuns() { return store.get(LS.runs) || {}; }
+function runProgress(sourceKey) { return (getRuns()[sourceKey]?.played || []).length; }
+
+function startRound(pool, name, sourceKey) {
   if (pool.length < 4) { toast("That playlist is too small to play with."); return; }
+  sourceKey = sourceKey || gameState.sourceKey || "liked";
+
+  // Draw without replacement: never repeat a song until the whole
+  // source has been played through, then reshuffle into a new run.
+  const runs = getRuns();
+  let played = new Set(runs[sourceKey]?.played || []);
+  let candidates = pool.filter(t => !played.has(t.id));
+  if (!candidates.length) {
+    played = new Set();
+    candidates = pool;
+    toast("Full run of " + name + " complete — reshuffling!");
+  }
+  const secret = candidates[Math.floor(Math.random() * candidates.length)];
+  played.add(secret.id);
+  runs[sourceKey] = { played: [...played] };
+  try { store.set(LS.runs, runs); } catch (e) {}
+
   gameState.pool = pool;
   gameState.poolName = name;
-  gameState.secret = pool[Math.floor(Math.random() * pool.length)];
+  gameState.sourceKey = sourceKey;
+  gameState.runPlayed = played.size;
+  gameState.runTotal = new Set(pool.map(t => t.id)).size;
+  gameState.secret = secret;
   gameState.stage = 0;
   gameState.log = [];
   gameState.mode = "round";
@@ -1275,7 +1300,7 @@ function renderGame() {
         ${st.plays ? `<div class="g-stats">${st.plays} played · ${st.wins} won · streak ${st.streak} (best ${st.best})</div>` : ""}
         <button class="g-card" id="g-liked" type="button">
           <div style="flex:1"><div class="gc1">Liked Songs</div>
-          <div class="gc2">${LIB.tracks.length.toLocaleString()} songs</div></div><div class="right">›</div>
+          <div class="gc2">${LIB.tracks.length.toLocaleString()} songs${runProgress("liked") ? " · " + runProgress("liked") + " played this run" : ""}</div></div><div class="right">›</div>
         </button>
         <div class="stat-h">Or one of your playlists</div>
         <input class="field" id="g-filter" placeholder="Search your playlists…" autocomplete="off" style="margin:0 0 10px" hidden>
@@ -1287,18 +1312,19 @@ function renderGame() {
           <button id="g-link-go" type="button">Load</button>
         </div>
       </div>`;
-    $("g-liked").addEventListener("click", () => startRound(likedPool(), "Liked Songs"));
+    $("g-liked").addEventListener("click", () => startRound(likedPool(), "Liked Songs", "liked"));
 
     const mount = $("g-playlists");
     const playlistCard = (pl) => {
       const b = document.createElement("button");
       b.className = "g-card";
       b.type = "button";
+      const prog = runProgress("pl:" + pl.id);
       b.innerHTML = `<div style="flex:1"><div class="gc1">${esc(pl.name)}</div>
-        <div class="gc2">${pl.count != null ? pl.count + " songs" : "playlist"}</div></div><div class="right">›</div>`;
+        <div class="gc2">${pl.count != null ? pl.count + " songs" : "playlist"}${prog ? " · " + prog + " played this run" : ""}</div></div><div class="right">›</div>`;
       b.addEventListener("click", async () => {
         b.querySelector(".gc2").textContent = "loading…";
-        try { startRound(await loadPlaylistPool(pl), pl.name); }
+        try { startRound(await loadPlaylistPool(pl), pl.name, "pl:" + pl.id); }
         catch (e) { toast("Couldn't load that playlist."); renderGame(); }
       });
       return b;
@@ -1340,7 +1366,7 @@ function renderGame() {
       $("g-link-go").textContent = "…";
       let name = "Pasted playlist";
       try { name = (await apiGet("/playlists/" + id)).name || name; } catch (e) {}
-      try { startRound(await loadPlaylistPool({ id }), name); }
+      try { startRound(await loadPlaylistPool({ id }), name, "pl:" + id); }
       catch (e) {
         toast("Couldn't load that playlist — it may not be accessible to your account.");
         $("g-link-go").textContent = "Load";
@@ -1359,6 +1385,7 @@ function renderGame() {
         <div class="rt">${esc(sec.name)}</div>
         <div class="ra">${esc(sec.artists.map(a => a.name).join(", "))}</div>
         <div class="rr">${won ? "Guessed with " + SNIPPETS[g.stage] + "s of audio · " + (g.stage + 1) + "/6" : "Better luck next round"}</div>
+        <div class="g-stats">song ${g.runPlayed} of ${g.runTotal} this run — no repeats until the run is done</div>
         <div class="g-actions">
           <button class="chip" id="g-again" type="button">Play again</button>
           <button class="chip" id="g-source" type="button">Change source</button>
@@ -1376,7 +1403,7 @@ function renderGame() {
   area.innerHTML = `
     <div class="game-wrap">
       <div class="g-title">Guess the song</div>
-      <div class="g-sub">from ${esc(g.poolName)} · try ${g.stage + 1} of 6</div>
+      <div class="g-sub">from ${esc(g.poolName)} · try ${g.stage + 1} of 6 · song ${g.runPlayed}/${g.runTotal} this run</div>
       <div class="seg-bar">${SNIPPETS.map((_, i) =>
         `<div class="seg ${i < g.stage ? "past" : i === g.stage ? "now" : ""}"></div>`).join("")}</div>
       <div class="seg-labels">${SNIPPETS.map(x => `<span>${x}s</span>`).join("")}</div>
@@ -1682,6 +1709,12 @@ async function doFullResync() {
   }
 }
 $("full-sync-btn").addEventListener("click", () => { closeSheet(); doFullResync(); });
+$("reset-runs-btn").addEventListener("click", () => {
+  store.del(LS.runs);
+  closeSheet();
+  toast("Game runs reset — every song is back in the deck.");
+  if (currentTab === "game" && gameState.mode === "setup") renderGame();
+});
 $("logout-btn").addEventListener("click", () => {
   store.del(LS.tokens);
   closeSheet();
