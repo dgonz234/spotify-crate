@@ -1120,10 +1120,23 @@ async function playSecret(limitSecs) {
   clearTimeout(snippetTimer);
   await ensureSdk();
   if (sdkPlayer.activateElement) sdkPlayer.activateElement();
-  const ok = await apiPut("/me/player/play?device_id=" + sdkDeviceId,
-    { uris: ["spotify:track:" + gameState.secret.id], position_ms: 0 });
-  if (!ok) throw new Error("Playback didn't start — is your Premium active?");
-  if (my !== playToken) { sdkPlayer.pause(); return; }
+
+  // If our in-browser player already has the secret loaded, replay locally:
+  // seek(0) + resume can't race other commands or change tracks, unlike
+  // re-sending a play command to Spotify's servers on every tap.
+  const st = await sdkPlayer.getCurrentState();
+  const loadedId = st?.track_window?.current_track?.id;
+  if (st && loadedId === gameState.secret.id) {
+    await sdkPlayer.seek(0);
+    if (my !== playToken) return; // a newer tap took over
+    await sdkPlayer.resume();
+  } else {
+    // First play of this round (or our device lost focus): load the track once.
+    const ok = await apiPut("/me/player/play?device_id=" + sdkDeviceId,
+      { uris: ["spotify:track:" + gameState.secret.id], position_ms: 0 });
+    if (!ok) throw new Error("Playback didn't start — is your Premium active?");
+  }
+  if (my !== playToken) return; // newer tap owns the timer now
   if (limitSecs) {
     snippetTimer = setTimeout(() => { if (my === playToken) sdkPlayer.pause(); },
       limitSecs * 1000 + 300); // small grace for stream start latency
@@ -1136,16 +1149,37 @@ function stopAudio() {
 }
 
 async function loadPlaylists() {
+  // Spotify's Feb-2026 API returns a broken "next" link for /me/playlists
+  // (it points at a removed endpoint), so we page manually by offset and
+  // keep whatever we've got if a later page errors out.
   const out = [];
-  let url = "/me/playlists?limit=50";
-  while (url) {
-    const page = await apiGet(url);
-    for (const p of page.items || []) {
-      if (p?.id) out.push({ id: p.id, name: p.name, count: p.tracks?.total ?? p.items?.total ?? null });
+  const seen = new Set();
+  let offset = 0, total = Infinity;
+  while (offset < total && offset < 1000) {
+    let page;
+    try { page = await apiGet("/me/playlists?limit=50&offset=" + offset); }
+    catch (e) { break; }
+    if (typeof page.total === "number") total = page.total;
+    const items = page.items || [];
+    if (!items.length) break;
+    for (const p of items) {
+      if (p?.id && !seen.has(p.id)) {
+        seen.add(p.id);
+        out.push({ id: p.id, name: p.name, count: p.tracks?.total ?? p.items?.total ?? null });
+      }
     }
-    url = page.next ? page.next.replace(API, "") : null;
+    offset += items.length;
   }
-  return out;
+  return { list: out, total: Number.isFinite(total) ? total : out.length };
+}
+function parsePlaylistId(input) {
+  const str = (input || "").trim();
+  let m = str.match(/open\.spotify\.com\/playlist\/([A-Za-z0-9]{22})/);
+  if (m) return m[1];
+  m = str.match(/spotify:playlist:([A-Za-z0-9]{22})/);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9]{22}$/.test(str)) return str;
+  return null;
 }
 async function loadPlaylistPool(pl) {
   const pool = [];
@@ -1244,32 +1278,74 @@ function renderGame() {
           <div class="gc2">${LIB.tracks.length.toLocaleString()} songs</div></div><div class="right">›</div>
         </button>
         <div class="stat-h">Or one of your playlists</div>
+        <input class="field" id="g-filter" placeholder="Search your playlists…" autocomplete="off" style="margin:0 0 10px" hidden>
         <div id="g-playlists"><div class="empty" style="padding:24px">Loading playlists…</div></div>
+        <div class="stat-h">Or paste a playlist link</div>
+        <div class="hint" style="margin:-2px 0 8px">Works for any playlist you own or follow — handy if one is missing above.</div>
+        <div class="copy-row">
+          <input class="field" id="g-link" placeholder="https://open.spotify.com/playlist/…" autocomplete="off" style="margin:0;flex:1">
+          <button id="g-link-go" type="button">Load</button>
+        </div>
       </div>`;
     $("g-liked").addEventListener("click", () => startRound(likedPool(), "Liked Songs"));
 
     const mount = $("g-playlists");
-    const fill = (pls) => {
-      if (!pls.length) { mount.innerHTML = `<div class="hint">No playlists found on your account.</div>`; return; }
+    const playlistCard = (pl) => {
+      const b = document.createElement("button");
+      b.className = "g-card";
+      b.type = "button";
+      b.innerHTML = `<div style="flex:1"><div class="gc1">${esc(pl.name)}</div>
+        <div class="gc2">${pl.count != null ? pl.count + " songs" : "playlist"}</div></div><div class="right">›</div>`;
+      b.addEventListener("click", async () => {
+        b.querySelector(".gc2").textContent = "loading…";
+        try { startRound(await loadPlaylistPool(pl), pl.name); }
+        catch (e) { toast("Couldn't load that playlist."); renderGame(); }
+      });
+      return b;
+    };
+    const fill = (data, filter) => {
+      const q = (filter || "").trim().toLocaleLowerCase();
+      const pls = q ? data.list.filter(p => p.name.toLocaleLowerCase().includes(q)) : data.list;
       mount.innerHTML = "";
-      for (const pl of pls) {
-        const b = document.createElement("button");
-        b.className = "g-card";
-        b.type = "button";
-        b.innerHTML = `<div style="flex:1"><div class="gc1">${esc(pl.name)}</div>
-          <div class="gc2">${pl.count != null ? pl.count + " songs" : "playlist"}</div></div><div class="right">›</div>`;
-        b.addEventListener("click", async () => {
-          b.querySelector(".gc2").textContent = "loading…";
-          try { startRound(await loadPlaylistPool(pl), pl.name); }
-          catch (e) { toast("Couldn't load that playlist."); renderGame(); }
-        });
-        mount.appendChild(b);
+      if (!data.list.length) {
+        mount.innerHTML = `<div class="hint">No playlists found on your account.</div>`;
+        return;
+      }
+      $("g-filter").hidden = data.list.length <= 8;
+      if (!pls.length) {
+        mount.innerHTML = `<div class="hint">Nothing matches "${esc(filter)}".</div>`;
+      } else {
+        renderChunked(mount, pls, playlistCard, 40);
+      }
+      if (data.list.length < data.total) {
+        const note = document.createElement("div");
+        note.className = "hint";
+        note.style.marginTop = "10px";
+        note.textContent = "Spotify returned " + data.list.length + " of your " + data.total +
+          " playlists — paste a link below for any that are missing.";
+        mount.appendChild(note);
       }
     };
+    $("g-filter").addEventListener("input", (e) => {
+      if (g.playlists) fill(g.playlists, e.target.value);
+    });
     if (g.playlists) fill(g.playlists);
     else loadPlaylists()
-      .then(pls => { g.playlists = pls; if (currentTab === "game" && g.mode === "setup") fill(pls); })
-      .catch(() => { mount.innerHTML = `<div class="hint">Couldn't load playlists — you can still play with Liked Songs.</div>`; });
+      .then(data => { g.playlists = data; if (currentTab === "game" && g.mode === "setup") fill(data); })
+      .catch(() => { mount.innerHTML = `<div class="hint">Couldn't load playlists — use the link box below or play with Liked Songs.</div>`; });
+
+    $("g-link-go").addEventListener("click", async () => {
+      const id = parsePlaylistId($("g-link").value);
+      if (!id) { toast("That doesn't look like a Spotify playlist link."); return; }
+      $("g-link-go").textContent = "…";
+      let name = "Pasted playlist";
+      try { name = (await apiGet("/playlists/" + id)).name || name; } catch (e) {}
+      try { startRound(await loadPlaylistPool({ id }), name); }
+      catch (e) {
+        toast("Couldn't load that playlist — it may not be accessible to your account.");
+        $("g-link-go").textContent = "Load";
+      }
+    });
     return;
   }
 
