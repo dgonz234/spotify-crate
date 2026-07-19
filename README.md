@@ -40,6 +40,7 @@ Open your hosted app, paste the Client ID, tap "Connect Spotify", and approve ac
 - **Artist page** — tap an artist to see every song you've liked from them, grouped by album, newest first. Tap a song to open it in the Spotify app.
 - **Songs tab** — all liked songs, newest first, searchable by title or artist.
 - **Stats tab** — totals, likes per year, a by-decade breakdown of when your music was released, your top artists, a duplicate finder (same song liked from different releases — singles vs. albums, remasters), and every one-hit wonder in your library.
+- **Game tab** — a Heardle-style guessing game. Pick Liked Songs or one of your playlists; a mystery song plays for 1 second, then 2, 4, 7, 11, and 16 across six tries, with autocomplete guessing from that source. Streams audio right in the browser (first use asks you to reconnect once, to grant the playback permission). Win/loss stats and streaks are tracked. Works best in Chrome; playback requires Premium.
 - **Settings (gear icon)** — sync new likes, full resync, log out.
 
 On Android, Chrome will offer "Install app" (menu → Add to Home screen) — it launches fullscreen with its own icon, and your cached library is browsable even offline.
@@ -50,6 +51,7 @@ On Android, Chrome will offer "Install app" (menu → Add to Home screen) — it
 - **Updating the app**: if you replace `index.html` later, also bump the `VERSION` string at the top of `sw.js` so installed copies fetch the new version promptly. Reloading twice also works.
 - **Only you (plus up to 4 others)** can use your app: Spotify's Development Mode allows 5 users per app, and additional users must be added under "User Management" in the developer dashboard.
 - **If your Premium lapses**, the Spotify app tied to your account stops working until you resubscribe (Spotify's rule, not the app's).
+- **Game audio and spoilers**: the game overrides the phone's media notification to say "Mystery song" while a round is live, but the notification may flash the real title for an instant when playback starts — glance away if you're a purist. Starting the game also makes "Crate Game" your active Spotify device; switch back in the Spotify app afterwards if you were listening on your phone.
 - Your Client ID is not a secret in this setup — PKCE auth is designed for exactly this kind of public client app.
 
 ## Ideas for later

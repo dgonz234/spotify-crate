@@ -327,6 +327,62 @@
   .dupe-head .dn { font-family: var(--display); font-weight: 700; font-size: 15px; }
   .dupe-head .da { font-family: var(--mono); font-size: 11px; color: var(--dim); }
 
+  /* game */
+  .game-wrap { padding: 16px 16px 48px; }
+  .g-title { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: -.02em; }
+  .g-sub { color: var(--dim); font-size: 13px; margin-top: 4px; }
+  .g-card {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px; margin-top: 10px;
+  }
+  .g-card:active { background: var(--panel-2); }
+  .g-card .gc1 { font-family: var(--display); font-weight: 700; font-size: 16px; }
+  .g-card .gc2 { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .seg-bar { display: flex; gap: 5px; margin: 18px 0 6px; }
+  .seg { flex: 1; height: 8px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--line); }
+  .seg.past { background: var(--danger); border-color: var(--danger); opacity: .55; }
+  .seg.now { background: var(--accent); border-color: var(--accent); }
+  .seg-labels { display: flex; gap: 5px; margin-bottom: 14px; }
+  .seg-labels span { flex: 1; text-align: center; font-family: var(--mono); font-size: 10px; color: var(--faint); }
+  .g-play {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; background: var(--accent); color: #06210F;
+    font-family: var(--display); font-weight: 700; font-size: 18px;
+    padding: 16px; border-radius: 999px; margin: 6px 0 16px;
+  }
+  .g-play:active { background: var(--accent-hi); }
+  .g-play[disabled] { opacity: .5; pointer-events: none; }
+  .g-inwrap { position: relative; }
+  .g-sugs {
+    position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 6px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+    max-height: 250px; overflow-y: auto; z-index: 5; box-shadow: 0 -8px 30px rgba(0,0,0,.5);
+  }
+  .g-sug { display: block; width: 100%; text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .g-sug:last-child { border-bottom: 0; }
+  .g-sug:active { background: var(--panel); }
+  .g-sug .s1 { font-size: 14px; font-weight: 600; font-family: var(--display); }
+  .g-sug .s2 { font-size: 12px; color: var(--dim); margin-top: 1px; }
+  .g-actions { display: flex; gap: 10px; margin-top: 10px; }
+  .g-actions .chip { flex: 1; text-align: center; }
+  .g-log { margin-top: 18px; }
+  .g-log .gl {
+    display: flex; align-items: center; gap: 10px; padding: 9px 2px;
+    border-bottom: 1px solid var(--line); font-size: 14px; color: var(--dim);
+  }
+  .g-log .gl .n { font-family: var(--mono); font-size: 11px; color: var(--faint); width: 16px; }
+  .g-log .gl.wrong { color: var(--danger); }
+  .reveal { text-align: center; padding-top: 10px; }
+  .reveal img {
+    width: 200px; height: 200px; border-radius: 14px; object-fit: cover;
+    border: 1px solid var(--line); margin: 14px auto; display: block;
+  }
+  .reveal .rt { font-family: var(--display); font-weight: 800; font-size: 22px; }
+  .reveal .ra { color: var(--dim); margin-top: 4px; }
+  .reveal .rr { font-family: var(--mono); font-size: 13px; color: var(--accent); margin-top: 12px; }
+  .g-stats { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 10px; }
+
   @media (min-width: 700px) {
     .list-area, .searchbar, .sortchips, .topbar { max-width: 640px; margin-left: auto; margin-right: auto; }
     .topbar { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
@@ -408,6 +464,7 @@
       <button class="tab active" data-tab="artists" type="button">Artists</button>
       <button class="tab" data-tab="songs" type="button">Songs</button>
       <button class="tab" data-tab="stats" type="button">Stats</button>
+      <button class="tab" data-tab="game" type="button">Game</button>
     </div>
     <div class="banner" id="resync-banner" hidden>
       <span id="banner-text"></span>
@@ -467,7 +524,8 @@
 const AUTH_URL  = "https://accounts.spotify.com/authorize";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const API       = "https://api.spotify.com/v1";
-const SCOPES    = "user-library-read";
+const SCOPES    = "user-library-read user-read-email user-read-private user-read-playback-state user-modify-playback-state streaming";
+const SCOPE_V   = 2; // bump when SCOPES change so old logins get re-prompted
 const REDIRECT_URI = location.origin + location.pathname;
 
 const LS = {
@@ -477,6 +535,8 @@ const LS = {
   tokens: "crate.tokens",        // {access, refresh, expiresAt}
   library: "crate.library",      // {tracks:[...], syncedAt, user}
   scope: "crate.scope",          // "all" | "main"
+  scopeV: "crate.scopeVersion",  // which SCOPES the current login granted
+  game: "crate.game",            // heardle stats
 };
 
 const $ = (id) => document.getElementById(id);
@@ -544,6 +604,7 @@ async function exchangeCode(code) {
   });
   if (!res.ok) throw new Error("Token exchange failed (" + res.status + ")");
   saveTokens(await res.json());
+  store.set(LS.scopeV, SCOPE_V);
 }
 function saveTokens(data) {
   const prev = store.get(LS.tokens) || {};
@@ -594,6 +655,25 @@ async function apiGet(path) {
     return res.json();
   }
   throw new Error("API kept failing on " + path);
+}
+
+async function apiPut(path, body) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const token = await getAccessToken();
+    const res = await fetch(API + path, {
+      method: "PUT",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (res.status === 429) {
+      const wait = (parseInt(res.headers.get("Retry-After")) || 2) * 1000;
+      await new Promise(r => setTimeout(r, wait + 250));
+      continue;
+    }
+    if (res.status === 401) { await refreshTokens(); continue; }
+    return res.ok;
+  }
+  return false;
 }
 
 /* ---------------- library sync ---------------- */
@@ -993,6 +1073,299 @@ function trackRow(t, subtitle) {
   return btn;
 }
 
+
+/* ---------------- heardle-style game ---------------- */
+const SNIPPETS = [1, 2, 4, 7, 11, 16];
+const gameState = { mode: "setup", pool: [], poolName: "", secret: null, stage: 0, log: [], playlists: null };
+let sdkPlayer = null, sdkDeviceId = null, sdkReadyPromise = null;
+let snippetTimer = 0, playToken = 0;
+
+function gameStats() {
+  return store.get(LS.game) || { plays: 0, wins: 0, dist: [0, 0, 0, 0, 0, 0], streak: 0, best: 0 };
+}
+
+function ensureSdk() {
+  if (sdkReadyPromise) return sdkReadyPromise;
+  sdkReadyPromise = new Promise((resolve, reject) => {
+    window.onSpotifyWebPlaybackSDKReady = () => {
+      const p = new Spotify.Player({
+        name: "Crate Game",
+        volume: 0.9,
+        getOAuthToken: cb => getAccessToken().then(cb).catch(() => {}),
+      });
+      p.addListener("ready", ({ device_id }) => { sdkDeviceId = device_id; sdkPlayer = p; resolve(); });
+      p.addListener("initialization_error", () => reject(new Error("This browser can't run Spotify playback (needs DRM support).")));
+      p.addListener("authentication_error", () => reject(new Error("Playback login failed — try re-connecting from the game screen.")));
+      p.addListener("account_error", () => reject(new Error("In-browser playback needs Spotify Premium.")));
+      p.addListener("player_state_changed", st => {
+        // Keep the phone's media notification from spoiling the answer
+        if (st && !st.paused && gameState.mode === "round" && "mediaSession" in navigator) {
+          try {
+            navigator.mediaSession.metadata = new MediaMetadata({ title: "Mystery song", artist: "Crate Game" });
+          } catch (e) {}
+        }
+      });
+      p.connect().then(ok => { if (!ok) reject(new Error("Couldn't connect the game player.")); });
+    };
+    const tag = document.createElement("script");
+    tag.src = "https://sdk.scdn.co/spotify-player.js";
+    tag.onerror = () => reject(new Error("Couldn't load Spotify's player — check your connection."));
+    document.head.appendChild(tag);
+  }).catch(e => { sdkReadyPromise = null; throw e; });
+  return sdkReadyPromise;
+}
+
+async function playSecret(limitSecs) {
+  const my = ++playToken;
+  clearTimeout(snippetTimer);
+  await ensureSdk();
+  if (sdkPlayer.activateElement) sdkPlayer.activateElement();
+  const ok = await apiPut("/me/player/play?device_id=" + sdkDeviceId,
+    { uris: ["spotify:track:" + gameState.secret.id], position_ms: 0 });
+  if (!ok) throw new Error("Playback didn't start — is your Premium active?");
+  if (my !== playToken) { sdkPlayer.pause(); return; }
+  if (limitSecs) {
+    snippetTimer = setTimeout(() => { if (my === playToken) sdkPlayer.pause(); },
+      limitSecs * 1000 + 300); // small grace for stream start latency
+  }
+}
+function stopAudio() {
+  playToken++;
+  clearTimeout(snippetTimer);
+  if (sdkPlayer) sdkPlayer.pause().catch?.(() => {});
+}
+
+async function loadPlaylists() {
+  const out = [];
+  let url = "/me/playlists?limit=50";
+  while (url) {
+    const page = await apiGet(url);
+    for (const p of page.items || []) {
+      if (p?.id) out.push({ id: p.id, name: p.name, count: p.tracks?.total ?? p.items?.total ?? null });
+    }
+    url = page.next ? page.next.replace(API, "") : null;
+  }
+  return out;
+}
+async function loadPlaylistPool(pl) {
+  const pool = [];
+  let url = "/playlists/" + pl.id + "/items?limit=50";
+  while (url) {
+    const page = await apiGet(url);
+    for (const it of page.items || []) {
+      const t = it.item ?? it.track; // Feb-2026 API renamed track -> item
+      if (!t?.id) continue; // skips local files
+      const images = t.album?.images || [];
+      pool.push({
+        id: t.id, name: t.name,
+        artists: (t.artists || []).map(a => ({ id: a.id, name: a.name })),
+        img: (images[0] || {}).url || "",
+      });
+    }
+    url = page.next ? page.next.replace(API, "") : null;
+  }
+  return pool;
+}
+function likedPool() {
+  return LIB.tracks.map(t => ({
+    id: t.id, name: t.name, artists: t.artists, img: t.album.imgBig || t.album.img,
+  }));
+}
+
+function guessMatches(g, secret) {
+  if (g.id === secret.id) return true;
+  // same song from a different release still counts
+  return normTitle(g.name) === normTitle(secret.name) &&
+    g.artists.some(a => secret.artists.some(b => b.id === a.id));
+}
+
+function startRound(pool, name) {
+  if (pool.length < 4) { toast("That playlist is too small to play with."); return; }
+  gameState.pool = pool;
+  gameState.poolName = name;
+  gameState.secret = pool[Math.floor(Math.random() * pool.length)];
+  gameState.stage = 0;
+  gameState.log = [];
+  gameState.mode = "round";
+  renderGame();
+}
+function advanceStage(entry) {
+  gameState.log.push(entry);
+  if (gameState.stage >= SNIPPETS.length - 1) { finishRound(false); return; }
+  gameState.stage++;
+  renderGame();
+}
+function finishRound(won) {
+  stopAudio();
+  gameState.mode = won ? "won" : "lost";
+  const st = gameStats();
+  st.plays++;
+  if (won) {
+    st.wins++;
+    st.dist[gameState.stage]++;
+    st.streak++;
+    st.best = Math.max(st.best, st.streak);
+  } else {
+    st.streak = 0;
+  }
+  store.set(LS.game, st);
+  renderGame();
+  playSecret(null).catch(() => {}); // victory lap: let the song play out
+}
+
+function renderGame() {
+  const area = $("list-area");
+  area.classList.remove("with-rail");
+  buildRail([]);
+  const g = gameState;
+
+  // needs the newer login with playback permission
+  if (store.get(LS.scopeV) !== SCOPE_V || !store.get(LS.tokens)) {
+    area.innerHTML = `
+      <div class="game-wrap">
+        <div class="g-title">Name that tune</div>
+        <div class="g-sub">Guess the mystery song from tiny snippets of the intro — 1s, 2s, 4s, 7s, 11s, then 16s. Six tries.</div>
+        <div class="g-sub" style="margin-top:14px">The game plays audio right here in the browser, which needs one extra Spotify permission. Reconnect once to enable it.</div>
+        <button class="btn" id="g-enable" style="margin-top:18px" type="button">Enable playback</button>
+      </div>`;
+    $("g-enable").addEventListener("click", beginAuth);
+    return;
+  }
+
+  if (g.mode === "setup") {
+    const st = gameStats();
+    area.innerHTML = `
+      <div class="game-wrap">
+        <div class="g-title">Name that tune</div>
+        <div class="g-sub">Pick a source. A mystery song is drawn from it — you get 1s of the intro, then 2, 4, 7, 11, 16. Guess or skip.</div>
+        ${st.plays ? `<div class="g-stats">${st.plays} played · ${st.wins} won · streak ${st.streak} (best ${st.best})</div>` : ""}
+        <button class="g-card" id="g-liked" type="button">
+          <div style="flex:1"><div class="gc1">Liked Songs</div>
+          <div class="gc2">${LIB.tracks.length.toLocaleString()} songs</div></div><div class="right">›</div>
+        </button>
+        <div class="stat-h">Or one of your playlists</div>
+        <div id="g-playlists"><div class="empty" style="padding:24px">Loading playlists…</div></div>
+      </div>`;
+    $("g-liked").addEventListener("click", () => startRound(likedPool(), "Liked Songs"));
+
+    const mount = $("g-playlists");
+    const fill = (pls) => {
+      if (!pls.length) { mount.innerHTML = `<div class="hint">No playlists found on your account.</div>`; return; }
+      mount.innerHTML = "";
+      for (const pl of pls) {
+        const b = document.createElement("button");
+        b.className = "g-card";
+        b.type = "button";
+        b.innerHTML = `<div style="flex:1"><div class="gc1">${esc(pl.name)}</div>
+          <div class="gc2">${pl.count != null ? pl.count + " songs" : "playlist"}</div></div><div class="right">›</div>`;
+        b.addEventListener("click", async () => {
+          b.querySelector(".gc2").textContent = "loading…";
+          try { startRound(await loadPlaylistPool(pl), pl.name); }
+          catch (e) { toast("Couldn't load that playlist."); renderGame(); }
+        });
+        mount.appendChild(b);
+      }
+    };
+    if (g.playlists) fill(g.playlists);
+    else loadPlaylists()
+      .then(pls => { g.playlists = pls; if (currentTab === "game" && g.mode === "setup") fill(pls); })
+      .catch(() => { mount.innerHTML = `<div class="hint">Couldn't load playlists — you can still play with Liked Songs.</div>`; });
+    return;
+  }
+
+  if (g.mode === "won" || g.mode === "lost") {
+    const sec = g.secret;
+    const won = g.mode === "won";
+    area.innerHTML = `
+      <div class="game-wrap reveal">
+        <div class="g-sub">${won ? "You got it!" : "Out of tries — it was:"}</div>
+        <img src="${art(sec.img)}" alt="">
+        <div class="rt">${esc(sec.name)}</div>
+        <div class="ra">${esc(sec.artists.map(a => a.name).join(", "))}</div>
+        <div class="rr">${won ? "Guessed with " + SNIPPETS[g.stage] + "s of audio · " + (g.stage + 1) + "/6" : "Better luck next round"}</div>
+        <div class="g-actions">
+          <button class="chip" id="g-again" type="button">Play again</button>
+          <button class="chip" id="g-source" type="button">Change source</button>
+        </div>
+        <button class="chip" id="g-open" style="margin-top:10px" type="button">Open in Spotify</button>
+      </div>`;
+    $("g-again").addEventListener("click", () => { stopAudio(); startRound(g.pool, g.poolName); });
+    $("g-source").addEventListener("click", () => { stopAudio(); g.mode = "setup"; renderGame(); });
+    $("g-open").addEventListener("click", () => { location.href = "https://open.spotify.com/track/" + sec.id; });
+    return;
+  }
+
+  // active round
+  const secs = SNIPPETS[g.stage];
+  area.innerHTML = `
+    <div class="game-wrap">
+      <div class="g-title">Guess the song</div>
+      <div class="g-sub">from ${esc(g.poolName)} · try ${g.stage + 1} of 6</div>
+      <div class="seg-bar">${SNIPPETS.map((_, i) =>
+        `<div class="seg ${i < g.stage ? "past" : i === g.stage ? "now" : ""}"></div>`).join("")}</div>
+      <div class="seg-labels">${SNIPPETS.map(x => `<span>${x}s</span>`).join("")}</div>
+      <button class="g-play" id="g-play" type="button">▶ Play ${secs}s</button>
+      <div class="g-inwrap">
+        <div class="g-sugs" id="g-sugs" hidden></div>
+        <input class="field" id="g-guess" placeholder="Type a song or artist…" autocomplete="off" spellcheck="false" style="margin-top:0">
+      </div>
+      <div class="g-actions">
+        <button class="chip" id="g-skip" type="button">Skip ${g.stage < 5 ? "(+" + (SNIPPETS[g.stage + 1] - secs) + "s)" : ""}</button>
+        <button class="chip" id="g-giveup" type="button">Give up</button>
+      </div>
+      <div class="g-log">${g.log.map((e, i) =>
+        `<div class="gl ${e.wrong ? "wrong" : ""}"><span class="n">${i + 1}</span>${esc(e.label)}</div>`).join("")}</div>
+    </div>`;
+
+  $("g-play").addEventListener("click", async () => {
+    const btn = $("g-play");
+    btn.disabled = true;
+    btn.textContent = "▶ Playing…";
+    try { await playSecret(secs); }
+    catch (e) { toast(e.message || "Playback failed."); }
+    setTimeout(() => { btn.disabled = false; btn.textContent = "▶ Play " + secs + "s (replay)"; },
+      secs * 1000 + 400);
+  });
+  $("g-skip").addEventListener("click", () => { stopAudio(); advanceStage({ label: "Skipped", wrong: false }); });
+  $("g-giveup").addEventListener("click", () => finishRound(false));
+
+  // guess autocomplete over the pool
+  const input = $("g-guess");
+  const sugs = $("g-sugs");
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLocaleLowerCase();
+    if (q.length < 2) { sugs.hidden = true; return; }
+    const seen = new Set();
+    const matches = [];
+    for (const t of g.pool) {
+      if (matches.length >= 8) break;
+      const hay = (t.name + " " + t.artists.map(a => a.name).join(" ")).toLocaleLowerCase();
+      if (!hay.includes(q)) continue;
+      const key = normTitle(t.name) + "|" + (t.artists[0]?.id || "");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      matches.push(t);
+    }
+    if (!matches.length) { sugs.hidden = true; return; }
+    sugs.innerHTML = "";
+    for (const t of matches) {
+      const b = document.createElement("button");
+      b.className = "g-sug";
+      b.type = "button";
+      b.innerHTML = `<div class="s1">${esc(t.name)}</div><div class="s2">${esc(t.artists.map(a => a.name).join(", "))}</div>`;
+      b.addEventListener("click", () => {
+        sugs.hidden = true;
+        input.value = "";
+        stopAudio();
+        if (guessMatches(t, g.secret)) finishRound(true);
+        else advanceStage({ label: t.name + " — " + t.artists.map(a => a.name).join(", "), wrong: true });
+      });
+      sugs.appendChild(b);
+    }
+    sugs.hidden = false;
+  });
+}
+
 /* ---------------- alphabet rail ---------------- */
 const RAIL_LETTERS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","#"];
 let railSpans = [];
@@ -1152,12 +1525,14 @@ function showLibrary() {
   refreshTab();
 }
 function refreshTab() {
-  $("searchbar").style.display = currentTab === "stats" ? "none" : "block";
+  $("searchbar").style.display = (currentTab === "stats" || currentTab === "game") ? "none" : "block";
   $("sortchips").style.display = currentTab === "artists" ? "flex" : "none";
   $("search-input").placeholder = currentTab === "artists" ? "Search artists" : "Search songs";
+  if (currentTab !== "game") stopAudio();
   if (currentTab === "artists") renderArtists();
   else if (currentTab === "songs") renderSongs();
-  else renderStats();
+  else if (currentTab === "stats") renderStats();
+  else renderGame();
 }
 document.querySelectorAll("#sortchips button[data-sort]").forEach(chip => {
   chip.addEventListener("click", () => {
